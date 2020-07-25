@@ -10,3 +10,4 @@ license = "MIT OR APACHE-2.0"
 [dependencies]
 xmlparser = "0.13.2"
 repository = {git = "https://github.com/crlf0710/repository-rs"}
+thiserror = "1.0.20"

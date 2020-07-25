@@ -3,6 +3,7 @@ extern crate alloc;
 use repository::{self, Repo, EntityPtr};
 use core::ops;
 use alloc::borrow::Cow;
+use thiserror::Error;
 
 mod parse;
 
@@ -73,7 +74,18 @@ pub type UEInfoItemPtr = EntityPtr<UEInfoItem>;
 pub type NotationInfoItemPtr = EntityPtr<NotationInfoItem>;
 pub type NSInfoItemPtr = EntityPtr<NSInfoItem>;
 
+#[derive(Clone)]
 pub struct Span(ops::Range<usize>);
+
+impl Span {
+    pub fn get<'a>(self, infoset: &'a InfoSet<'_>) -> Result<&'a str, SpanError> {
+        infoset.input.get(self.0).ok_or(SpanError)
+    }
+}
+
+#[derive(Debug, Error)]
+#[error("Invalid string span in XML info set")]
+pub struct SpanError;
 
 pub struct UriSpan(Span);
 
