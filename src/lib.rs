@@ -1,8 +1,8 @@
 extern crate alloc;
 
-use repository::{self, Repo, EntityPtr};
-use core::ops;
 use alloc::borrow::Cow;
+use core::ops;
+use repository::{self, EntityPtr, Repo};
 use thiserror::Error;
 
 mod parse;
@@ -78,8 +78,8 @@ pub type NSInfoItemPtr = EntityPtr<NSInfoItem>;
 pub struct Span(ops::Range<usize>);
 
 impl Span {
-    pub fn get<'a>(self, infoset: &'a InfoSet<'_>) -> Result<&'a str, SpanError> {
-        infoset.input.get(self.0).ok_or(SpanError)
+    pub fn get<'a>(&self, infoset: &'a InfoSet<'_>) -> Result<&'a str, SpanError> {
+        infoset.input.get(self.0.clone()).ok_or(SpanError)
     }
 }
 
@@ -108,7 +108,7 @@ pub enum CowSpan {
 
 pub enum UnknownOr<T> {
     Unknown,
-    Known(T)
+    Known(T),
 }
 
 pub struct DocInfoItem {
@@ -217,4 +217,3 @@ pub struct NSInfoItem {
     pub prefix: Option<Span>,
     pub namespace_name: Span,
 }
-

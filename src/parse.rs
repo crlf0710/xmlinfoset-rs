@@ -1,10 +1,8 @@
 use super::*;
-use xmlparser::Tokenizer as XmlTokenizer;
 use xmlparser::Token as XmlToken;
+use xmlparser::Tokenizer as XmlTokenizer;
 
-pub enum ParseError {
-
-}
+pub enum ParseError {}
 
 impl<'input> InfoSet<'input> {
     pub fn parse(input: &'input str) -> Result<Self, ParseError> {
