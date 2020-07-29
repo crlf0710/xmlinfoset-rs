@@ -106,6 +106,15 @@ pub enum CowSpan {
     Owned(String),
 }
 
+impl CowSpan {
+    pub fn get_ref<'a>(&'a self, infoset: &'a InfoSet<'_>) -> Result<&'a str, SpanError> {
+        match self {
+            CowSpan::Borrowed(span) => span.get(infoset),
+            CowSpan::Owned(str) => Ok(str.as_ref()),
+        }
+    }
+}
+
 pub enum UnknownOr<T> {
     Unknown,
     Known(T),
