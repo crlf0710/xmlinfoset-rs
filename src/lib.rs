@@ -10,7 +10,7 @@ mod parse;
 pub struct InfoSet<'input> {
     input: Cow<'input, str>,
     repo: Repo,
-    doc_info_item: EntityPtr<DocInfoItem>,
+    pub doc_info_item: EntityPtr<DocInfoItem>,
 }
 
 impl<'input> ops::Deref for InfoSet<'input> {
