@@ -25,6 +25,7 @@ pub struct InfoSetStatistics {
     pub has_nonstandard_entity_reference: bool,
 }
 
+#[derive(Copy, Clone)]
 pub enum DocChildInfoItemPtr {
     Element(ElementInfoItemPtr),
     PI(PIInfoItemPtr),
@@ -32,6 +33,7 @@ pub enum DocChildInfoItemPtr {
     DTD(DTDInfoItemPtr),
 }
 
+#[derive(Copy, Clone)]
 pub enum ElementChildInfoItemPtr {
     Element(ElementInfoItemPtr),
     PI(PIInfoItemPtr),
@@ -40,23 +42,27 @@ pub enum ElementChildInfoItemPtr {
     Comment(CommentInfoItemPtr),
 }
 
+#[derive(Copy, Clone)]
 pub enum ElementParentInfoItemPtr {
     Doc(DocInfoItemPtr),
     Element(ElementInfoItemPtr),
 }
 
+#[derive(Copy, Clone)]
 pub enum AttrReferenceInfoItemPtr {
     Element(ElementInfoItemPtr),
     UE(UEInfoItemPtr),
     Notation(NotationInfoItemPtr),
 }
 
+#[derive(Copy, Clone)]
 pub enum PIParentInfoItemPtr {
     Doc(DocInfoItemPtr),
     Element(ElementInfoItemPtr),
     DTD(DTDInfoItemPtr),
 }
 
+#[derive(Copy, Clone)]
 pub enum CommentParentInfoItemPtr {
     Doc(DocInfoItemPtr),
     Element(ElementInfoItemPtr),
