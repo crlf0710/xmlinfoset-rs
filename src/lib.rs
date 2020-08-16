@@ -5,7 +5,8 @@ use core::ops;
 use repository::{self, EntityPtr, Repo};
 use thiserror::Error;
 
-mod parse;
+pub mod parse;
+pub mod utils;
 
 pub struct InfoSet<'input> {
     input: Cow<'input, str>,
