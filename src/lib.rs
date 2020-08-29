@@ -2,26 +2,44 @@ extern crate alloc;
 
 use alloc::borrow::Cow;
 use core::ops;
-use repository::{self, EntityPtr, Repo};
+use repository::{self, EntityPtr, Repo, AsRepoRef, AsRepoMut};
 use thiserror::Error;
 
 pub mod parse;
+#[macro_use]
 pub mod utils;
 
-pub struct InfoSet<'input> {
-    input: Cow<'input, str>,
+pub struct InfoSetData {
     repo: Repo,
-    pub doc_info_item: EntityPtr<DocInfoItem>,
+    pub doc_info_item: DocInfoItemPtr,
 }
 
-impl<'input> ops::Deref for InfoSet<'input> {
-    type Target = Repo;
-
-    fn deref(&self) -> &Self::Target {
+impl AsRepoRef for InfoSetData {
+    fn as_repo_ref(&self) -> &Repo {
         &self.repo
     }
 }
 
+impl AsRepoMut for InfoSetData {
+    fn as_repo_mut(&mut self) -> &mut Repo {
+        &mut self.repo
+    }
+}
+
+pub struct InfoSet<'input> {
+    input: Cow<'input, str>,
+    data: InfoSetData
+}
+
+impl<'input> ops::Deref for InfoSet<'input> {
+    type Target = InfoSetData;
+
+    fn deref(&self) -> &Self::Target {
+        &self.data
+    }
+}
+
+#[derive(Default)]
 pub struct InfoSetStatistics {
     pub has_nonstandard_entity_reference: bool,
 }
@@ -42,6 +60,10 @@ pub enum ElementChildInfoItemPtr {
     CharGroup(CharGroupInfoItemPtr),
     Comment(CommentInfoItemPtr),
 }
+
+impl_enum_from_variant!(ElementChildInfoItemPtr, Element, ElementInfoItemPtr);
+impl_enum_from_variant!(ElementChildInfoItemPtr, PI, PIInfoItemPtr);
+impl_enum_from_variant!(ElementChildInfoItemPtr, Comment, CommentInfoItemPtr);
 
 #[derive(Copy, Clone)]
 pub enum ElementParentInfoItemPtr {
@@ -69,17 +91,17 @@ pub enum CommentParentInfoItemPtr {
     Element(ElementInfoItemPtr),
 }
 
-pub type DocInfoItemPtr = EntityPtr<DocInfoItem>;
-pub type ElementInfoItemPtr = EntityPtr<ElementInfoItem>;
-pub type AttributeInfoItemPtr = EntityPtr<AttributeInfoItem>;
-pub type PIInfoItemPtr = EntityPtr<PIInfoItem>;
-pub type UERInfoItemPtr = EntityPtr<UERInfoItem>;
-pub type CharGroupInfoItemPtr = EntityPtr<CharGroupInfoItem>;
-pub type CommentInfoItemPtr = EntityPtr<CommentInfoItem>;
-pub type DTDInfoItemPtr = EntityPtr<DTDInfoItem>;
-pub type UEInfoItemPtr = EntityPtr<UEInfoItem>;
-pub type NotationInfoItemPtr = EntityPtr<NotationInfoItem>;
-pub type NSInfoItemPtr = EntityPtr<NSInfoItem>;
+pub type DocInfoItemPtr = EntityPtr<DocInfoItem, InfoSetData>;
+pub type ElementInfoItemPtr = EntityPtr<ElementInfoItem, InfoSetData>;
+pub type AttributeInfoItemPtr = EntityPtr<AttributeInfoItem, InfoSetData>;
+pub type PIInfoItemPtr = EntityPtr<PIInfoItem, InfoSetData>;
+pub type UERInfoItemPtr = EntityPtr<UERInfoItem, InfoSetData>;
+pub type CharGroupInfoItemPtr = EntityPtr<CharGroupInfoItem, InfoSetData>;
+pub type CommentInfoItemPtr = EntityPtr<CommentInfoItem, InfoSetData>;
+pub type DTDInfoItemPtr = EntityPtr<DTDInfoItem, InfoSetData>;
+pub type UEInfoItemPtr = EntityPtr<UEInfoItem, InfoSetData>;
+pub type NotationInfoItemPtr = EntityPtr<NotationInfoItem, InfoSetData>;
+pub type NSInfoItemPtr = EntityPtr<NSInfoItem, InfoSetData>;
 
 #[derive(Clone)]
 pub struct Span(ops::Range<usize>);
@@ -101,11 +123,12 @@ pub enum Never {}
 pub enum Version {
     Version1_0,
     Version1_1,
+    Other(String),
 }
 
 pub enum EncodingScheme {
     Utf8,
-    Other(Span),
+    Other(String),
 }
 
 pub enum CowSpan {
@@ -133,9 +156,9 @@ pub struct DocInfoItem {
     pub notations: Option<Vec<NotationInfoItemPtr>>,
     pub unparsed_entities: Vec<UEInfoItemPtr>,
     pub base_uri: UriSpan,
-    pub character_encoding_scheme: EncodingScheme,
+    pub character_encoding_scheme: Option<EncodingScheme>,
     pub standalone: Option<bool>,
-    pub version: Option<Version>,
+    pub version: Version,
     pub all_declarations_processed: bool,
 }
 
@@ -181,7 +204,7 @@ pub struct AttributeInfoItem {
 
 pub struct PIInfoItem {
     pub target: Span,
-    pub content: Span,
+    pub content: Option<Span>,
     pub base_uri: UriSpan,
     pub notation: Option<UnknownOr<NotationInfoItemPtr>>,
     pub parent: PIParentInfoItemPtr,
