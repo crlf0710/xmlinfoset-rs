@@ -38,6 +38,10 @@ pub enum ParseError {
     UnexpectedToken,
     #[error("unexpected eof")]
     UnexpectedEOF,
+    #[error("duplicate ns attribute")]
+    DuplicateNSAttribute,
+    #[error("duplicate root element")]
+    DuplicateRootElement,
     #[error("internal error")]
     InternalError(#[from] RepoError),
 }
@@ -154,11 +158,11 @@ fn parse_xml_doc(
         character_encoding_scheme: xml_encoding,
         standalone: xml_standalone,
         document_element: root_element.unwrap(),
-        children: todo!(),
-        notations: todo!(),
-        unparsed_entities: todo!(),
-        base_uri: todo!(),
-        all_declarations_processed: todo!(),
+        children: fixme_impl!(Vec::new()),
+        notations: fixme_impl!(None),
+        unparsed_entities: fixme_impl!(Vec::new()),
+        base_uri: fixme_impl!(None),
+        all_declarations_processed: fixme_impl!(true),
     };
     Ok(doc_info_item)
 }
@@ -204,8 +208,11 @@ fn parse_element_tree(
             Some(Ok(t)) => t,
         };
         match next_token {
-            XmlToken::ElementStart { prefix, local, .. } => {
+            XmlToken::ElementStart { prefix: element_prefix, local: element_local, .. } => {
                 let self_close;
+                let mut non_namespace_attrs = vec![];
+                let mut namespace_attributes= vec![];
+                let mut default_namespace_attribute = None;
                 'parse_attr_list: loop {
                     use xmlparser::ElementEnd;
                     let iterate_item = tokens.next();
@@ -215,9 +222,20 @@ fn parse_element_tree(
                         Some(Ok(XmlToken::Attribute {
                             prefix: attr_prefix,
                             local: attr_local,
+                            value: attr_value,
                             ..
                         })) => {
-                            todo!();
+                            if attr_prefix.is_empty() && attr_local.as_str() == "xmlns" {
+                                if default_namespace_attribute.is_some() {
+                                    return Err(ParseError::DuplicateNSAttribute);
+                                }
+                                default_namespace_attribute = Some((attr_local, attr_value));
+                            } else if attr_prefix.as_str() == "xmlns" {
+                                let local_str = attr_local.as_str();
+                                namespace_attributes.push((attr_local, attr_value));
+                            } else {
+                                non_namespace_attrs.push((attr_prefix, attr_local, attr_value));
+                            }
                         }
                         Some(Ok(XmlToken::ElementEnd {
                             end: ElementEnd::Open,
@@ -242,21 +260,44 @@ fn parse_element_tree(
                     None
                 };
                 let element_info_item = ElementInfoItem {
-                    prefix: Option::<Span>::from_xml_strspan(prefix),
-                    local_name: Span::from_xml_strspan(local),
-                    base_uri: todo!(),
+                    prefix: Option::<Span>::from_xml_strspan(element_prefix),
+                    local_name: Span::from_xml_strspan(element_local),
+                    base_uri: fixme_impl!(None),
                     parent: if let Some(e) = parent {
                         ElementParentInfoItemPtr::Element(e)
                     } else {
                         ElementParentInfoItemPtr::Doc(doc_info_item_ptr)
                     },
-                    namespace_name: todo!(),
-                    children: todo!(),
-                    attributes: todo!(),
-                    namespace_attributes: todo!(),
-                    in_scope_namespaces: todo!(),
+                    namespace_name: fixme_impl!(None),
+                    children: fixme_impl!(Vec::new()),
+                    attributes: fixme_impl!(Vec::new()),
+                    namespace_attributes: fixme_impl!(Vec::new()),
+                    in_scope_namespaces: fixme_impl!(Vec::new()),
                 };
-                todo!();
+                let element_info_ptr = repo.insert(element_info_item).cast_repo::<InfoSetData>();
+                if let Some(parent) = parent {
+                    append_to_element_as_child(repo, parent, element_info_ptr)?;
+                } else {
+                    if root.is_some() {
+                        return Err(ParseError::DuplicateRootElement);
+                    }
+                    root = Some(element_info_ptr);
+                }
+                if !self_close {
+                    parse_stack.push(ParseStackEntry {
+                        element_ptr: element_info_ptr,
+                        prefix: element_prefix,
+                        local_name: element_local,
+                    });
+                    parse_state = ParseState::AfterDescent;
+                } else {
+                    if parent.is_some() {
+                        parse_state = ParseState::AfterAppend;
+                    } else {
+                        parse_state = ParseState::Done;
+                        break 'parse_elem_tree;
+                    }
+                }
             }
             XmlToken::Comment { text, .. } => {
                 if !matches!(

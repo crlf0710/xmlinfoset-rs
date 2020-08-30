@@ -5,9 +5,9 @@ use core::ops;
 use repository::{self, EntityPtr, Repo, AsRepoRef, AsRepoMut};
 use thiserror::Error;
 
-pub mod parse;
 #[macro_use]
 pub mod utils;
+pub mod parse;
 
 pub struct InfoSetData {
     repo: Repo,
@@ -155,7 +155,7 @@ pub struct DocInfoItem {
     pub document_element: ElementInfoItemPtr,
     pub notations: Option<Vec<NotationInfoItemPtr>>,
     pub unparsed_entities: Vec<UEInfoItemPtr>,
-    pub base_uri: UriSpan,
+    pub base_uri: Option<UriSpan>,
     pub character_encoding_scheme: Option<EncodingScheme>,
     pub standalone: Option<bool>,
     pub version: Version,
@@ -170,7 +170,7 @@ pub struct ElementInfoItem {
     pub attributes: Vec<AttributeInfoItemPtr>,
     pub namespace_attributes: Vec<AttributeInfoItemPtr>,
     pub in_scope_namespaces: Vec<NSInfoItemPtr>,
-    pub base_uri: UriSpan,
+    pub base_uri: Option<UriSpan>,
     pub parent: ElementParentInfoItemPtr,
 }
 

@@ -17,3 +17,9 @@ macro_rules! impl_enum_from_variant {
         }
     };
 }
+
+macro_rules! fixme_impl {
+    ($v:expr) => {
+        $v
+    };
+}
