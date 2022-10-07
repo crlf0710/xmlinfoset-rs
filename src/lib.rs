@@ -276,8 +276,11 @@ pub struct ElementInfoItem {
     pub prefix: Option<Span>,
     #[by_ref]
     pub children: Vec<ElementChildInfoItem>,
+    #[by_ref]
     pub attributes: Vec<AttributeInfoItem>,
+    #[by_ref]
     pub namespace_attributes: Vec<AttributeInfoItem>,
+    #[by_ref]
     pub in_scope_namespaces: Vec<NSInfoItem>,
     pub base_uri: Option<UriSpan>,
     pub parent: ElementParentInfoItem,
@@ -349,6 +352,7 @@ pub struct CommentInfoItem {
 pub struct DTDInfoItem {
     pub system_identifier: Option<Span>,
     pub public_identifier: Option<Span>,
+    #[by_ref]
     pub children: Vec<PIInfoItem>,
     pub parent: DocInfoItem,
 }
