@@ -1,13 +1,12 @@
 [package]
 name = "xmlinfoset"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["CrLF0710"]
-edition = "2018"
+edition = "2021"
+rust-version = "1.65"
 license = "MIT OR Apache-2.0"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 xmlparser = "0.13.2"
-repository = {version = "0.0.2"}
+repository = {version = "0.1.0", git = "https://github.com/crlf0710/repository-rs"}
 thiserror = "1.0.20"

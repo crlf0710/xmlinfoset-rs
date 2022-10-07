@@ -1,6 +1,5 @@
 use super::*;
 use core::iter::Peekable;
-use repository::Error as RepoError;
 use thiserror::Error;
 use xmlparser::StrSpan as XmlStrSpan;
 use xmlparser::Token as XmlToken;
@@ -42,14 +41,6 @@ pub enum ParseError {
     DuplicateNSAttribute,
     #[error("duplicate root element")]
     DuplicateRootElement,
-    #[error("internal error")]
-    InternalError(#[from] RepoError),
-}
-
-impl<T: core::any::Any, E> From<repository::prealloc_tx::PreallocTxError<T, E>> for ParseError {
-    fn from(v: repository::prealloc_tx::PreallocTxError<T, E>) -> Self {
-        ParseError::InternalError(RepoError::InvalidPtr)
-    }
 }
 
 pub fn parse<'input>(input: &'input str) -> Result<InfoSet<'input>, ParseError> {
@@ -60,32 +51,25 @@ pub fn parse<'input>(input: &'input str) -> Result<InfoSet<'input>, ParseError> 
 pub fn parse_with_statistics<'input>(
     input: &'input str,
 ) -> Result<(InfoSet<'input>, InfoSetStatistics), ParseError> {
-    let mut repo = Repo::new();
+    let mut info_set_data = InfoSetData::default();
     let xml_tokenizer = XmlTokenizer::from(input);
     let mut tokens = xml_tokenizer.into_iter().peekable();
     let mut xmlinfoset_statistics = InfoSetStatistics::default();
-    let doc_info_item_ptr =
-        repo.transaction_preallocate(|tx| -> Result<DocInfoItemPtr, ParseError> {
-            let doc_info_item_ptr = tx.preallocate::<DocInfoItem>().cast_repo::<InfoSetData>();
-            let doc_info_item = parse_xml_doc(tx.repo_mut(), &mut tokens, doc_info_item_ptr)?;
-            tx.init_preallocation(doc_info_item_ptr, doc_info_item)?;
-            Ok(doc_info_item_ptr)
-        })?;
+    let doc_info_item = DocInfoItem::new_not_yet_parsed(&mut info_set_data);
+    parse_xml_doc(&mut info_set_data, &mut tokens, doc_info_item)?;
+    info_set_data.doc_info_item = Some(doc_info_item);
     let xmlinfoset = InfoSet {
         input: Cow::Borrowed(input),
-        data: InfoSetData {
-            repo,
-            doc_info_item: doc_info_item_ptr,
-        },
+        data: info_set_data,
     };
     Ok((xmlinfoset, xmlinfoset_statistics))
 }
 
 fn parse_xml_doc(
-    repo: &mut Repo,
+    repo: &mut InfoSetData,
     mut tokens: &mut Peekable<XmlTokenizer>,
-    doc_info_item_ptr: DocInfoItemPtr,
-) -> Result<DocInfoItem, ParseError> {
+    doc_info_item: DocInfoItem,
+) -> Result<(), ParseError> {
     enum DocState {
         Initial,
         AfterXmlDecl,
@@ -93,10 +77,11 @@ fn parse_xml_doc(
         AfterRootElement,
         Done,
     }
+    let mut state;
 
-    let mut state = DocState::Initial;
-
+    state = DocState::Initial;
     let (mut xml_version, mut xml_encoding, mut xml_standalone) = (None, None, None);
+
     if let Some(peeked_token) = tokens.peek() {
         let peeked_token = match peeked_token {
             Ok(peeked_token) => peeked_token,
@@ -137,57 +122,64 @@ fn parse_xml_doc(
                 if !matches!(state, DocState::AfterXmlDecl | DocState::AfterDTD) {
                     return Err(ParseError::UnexpectedToken);
                 }
-                let element = parse_element_tree(repo, &mut tokens, doc_info_item_ptr)?;
+                let element = parse_element_tree(repo, &mut tokens, doc_info_item)?;
                 root_element = Some(element);
                 state = DocState::AfterRootElement;
             }
             XmlToken::Comment { .. } | XmlToken::ProcessingInstruction { .. } => {
                 let misc_item = tokens.next().unwrap().unwrap();
+                // FIXME
             }
             _ => {
                 return Err(ParseError::UnexpectedToken);
             }
         };
     }
+
     if !matches!(state, DocState::AfterRootElement) {
         return Err(ParseError::UnexpectedEOF);
     }
     state = DocState::Done;
-    let doc_info_item = DocInfoItem {
-        version: xml_version.unwrap_or(Version::Version1_0),
-        character_encoding_scheme: xml_encoding,
-        standalone: xml_standalone,
-        document_element: root_element.unwrap(),
-        children: fixme_impl!(Vec::new()),
-        notations: fixme_impl!(None),
-        unparsed_entities: fixme_impl!(Vec::new()),
-        base_uri: fixme_impl!(None),
-        all_declarations_processed: fixme_impl!(true),
-    };
-    Ok(doc_info_item)
+
+    doc_info_item.transition_to_parsed_from_not_yet_parsed(
+        repo::keyed!(version: xml_version.unwrap_or(Version::Version1_0)),
+        repo::keyed!(character_encoding_scheme: xml_encoding),
+        repo::keyed!(standalone: xml_standalone),
+        repo::keyed!(document_element: root_element.unwrap()),
+        repo::keyed!(children: fixme_impl!(Vec::new())),
+        repo::keyed!(notations: fixme_impl!(None)),
+        repo::keyed!(unparsed_entities: fixme_impl!(Vec::new())),
+        repo::keyed!(base_uri: fixme_impl!(None)),
+        repo::keyed!(all_declarations_processed: fixme_impl!(true)),
+        repo,
+    );
+
+    Ok(())
 }
 
-fn parse_dtd(repo: &mut Repo, tokens: &mut Peekable<XmlTokenizer>) -> Result<(), ParseError> {
+fn parse_dtd(
+    repo: &mut InfoSetData,
+    tokens: &mut Peekable<XmlTokenizer>,
+) -> Result<(), ParseError> {
     todo!();
 }
 
 fn append_to_element_as_child(
-    repo: &mut Repo,
-    parent: ElementInfoItemPtr,
-    v: impl Into<ElementChildInfoItemPtr>,
-) -> Result<(), RepoError> {
-    let parent_mut = parent.cast_repo::<Repo>().get_mut(repo)?;
+    repo: &mut InfoSetData,
+    parent: ElementInfoItem,
+    v: impl Into<ElementChildInfoItem>,
+) {
+    let parent_children = parent.children_mut(repo);
     todo!();
-    Ok(())
 }
 
 fn parse_element_tree(
-    repo: &mut Repo,
+    repo: &mut InfoSetData,
     tokens: &mut Peekable<XmlTokenizer>,
-    doc_info_item_ptr: DocInfoItemPtr,
-) -> Result<ElementInfoItemPtr, ParseError> {
+    doc_info_item: DocInfoItem,
+) -> Result<ElementInfoItem, ParseError> {
     struct ParseStackEntry<'a> {
-        element_ptr: ElementInfoItemPtr,
+        element_info_item: ElementInfoItem,
         prefix: XmlStrSpan<'a>,
         local_name: XmlStrSpan<'a>,
     }
@@ -208,10 +200,14 @@ fn parse_element_tree(
             Some(Ok(t)) => t,
         };
         match next_token {
-            XmlToken::ElementStart { prefix: element_prefix, local: element_local, .. } => {
+            XmlToken::ElementStart {
+                prefix: element_prefix,
+                local: element_local,
+                ..
+            } => {
                 let self_close;
                 let mut non_namespace_attrs = vec![];
-                let mut namespace_attributes= vec![];
+                let mut namespace_attributes = vec![];
                 let mut default_namespace_attribute = None;
                 'parse_attr_list: loop {
                     use xmlparser::ElementEnd;
@@ -255,37 +251,37 @@ fn parse_element_tree(
                     };
                 }
                 let parent = if let Some(e) = parse_stack.last() {
-                    Some(e.element_ptr)
+                    Some(e.element_info_item)
                 } else {
                     None
                 };
-                let element_info_item = ElementInfoItem {
-                    prefix: Option::<Span>::from_xml_strspan(element_prefix),
-                    local_name: Span::from_xml_strspan(element_local),
-                    base_uri: fixme_impl!(None),
-                    parent: if let Some(e) = parent {
-                        ElementParentInfoItemPtr::Element(e)
+                let element_info_item = ElementInfoItem::new(
+                    fixme_impl!(None),
+                    Span::from_xml_strspan(element_local),
+                    Option::<Span>::from_xml_strspan(element_prefix),
+                    fixme_impl!(Vec::new()),
+                    fixme_impl!(Vec::new()),
+                    fixme_impl!(Vec::new()),
+                    fixme_impl!(Vec::new()),
+                    fixme_impl!(None),
+                    if let Some(e) = parent {
+                        ElementParentInfoItem::Element(e)
                     } else {
-                        ElementParentInfoItemPtr::Doc(doc_info_item_ptr)
+                        ElementParentInfoItem::Doc(doc_info_item)
                     },
-                    namespace_name: fixme_impl!(None),
-                    children: fixme_impl!(Vec::new()),
-                    attributes: fixme_impl!(Vec::new()),
-                    namespace_attributes: fixme_impl!(Vec::new()),
-                    in_scope_namespaces: fixme_impl!(Vec::new()),
-                };
-                let element_info_ptr = repo.insert(element_info_item).cast_repo::<InfoSetData>();
+                    repo,
+                );
                 if let Some(parent) = parent {
-                    append_to_element_as_child(repo, parent, element_info_ptr)?;
+                    append_to_element_as_child(repo, parent, element_info_item);
                 } else {
                     if root.is_some() {
                         return Err(ParseError::DuplicateRootElement);
                     }
-                    root = Some(element_info_ptr);
+                    root = Some(element_info_item);
                 }
                 if !self_close {
                     parse_stack.push(ParseStackEntry {
-                        element_ptr: element_info_ptr,
+                        element_info_item,
                         prefix: element_prefix,
                         local_name: element_local,
                     });
@@ -306,13 +302,13 @@ fn parse_element_tree(
                 ) {
                     return Err(ParseError::UnexpectedToken);
                 }
-                let parent = parse_stack.last().unwrap().element_ptr;
-                let comment_info_item = CommentInfoItem {
-                    content: Span::from_xml_strspan(text),
-                    parent: CommentParentInfoItemPtr::Element(parent),
-                };
-                let comment_info_ptr = repo.insert(comment_info_item).cast_repo::<InfoSetData>();
-                append_to_element_as_child(repo, parent, comment_info_ptr)?;
+                let parent = parse_stack.last().unwrap().element_info_item;
+                let comment_info_item = CommentInfoItem::new(
+                    Span::from_xml_strspan(text),
+                    CommentParentInfoItem::Element(parent),
+                    repo,
+                );
+                append_to_element_as_child(repo, parent, comment_info_item);
                 parse_state = ParseState::AfterAppend;
             }
             XmlToken::ProcessingInstruction {
@@ -325,16 +321,16 @@ fn parse_element_tree(
                     return Err(ParseError::UnexpectedToken);
                 }
 
-                let parent = parse_stack.last().unwrap().element_ptr;
-                let pi_info_item = PIInfoItem {
-                    target: Span::from_xml_strspan(target),
-                    content: content.map(Span::from_xml_strspan),
-                    base_uri: todo!(),
-                    notation: todo!(),
-                    parent: PIParentInfoItemPtr::Element(parent),
-                };
-                let pi_info_ptr = repo.insert(pi_info_item).cast_repo::<InfoSetData>();
-                append_to_element_as_child(repo, parent, pi_info_ptr)?;
+                let parent = parse_stack.last().unwrap().element_info_item;
+                let pi_info_item = PIInfoItem::new(
+                    Span::from_xml_strspan(target),
+                    content.map(Span::from_xml_strspan),
+                    fixme_impl!(None),
+                    fixme_impl!(None),
+                    PIParentInfoItem::Element(parent),
+                    repo,
+                );
+                append_to_element_as_child(repo, parent, pi_info_item);
                 parse_state = ParseState::AfterAppend;
             }
             XmlToken::ElementEnd { end, .. } => {

@@ -2,33 +2,34 @@ extern crate alloc;
 
 use alloc::borrow::Cow;
 use core::ops;
-use repository::{self, EntityPtr, Repo, AsRepoRef, AsRepoMut};
 use thiserror::Error;
 
 #[macro_use]
 pub mod utils;
 pub mod parse;
 
+#[repo::repo]
+#[member(
+    DocInfoItem,
+    ElementInfoItem,
+    CharGroupInfoItem,
+    AttributeInfoItem,
+    PIInfoItem,
+    CommentInfoItem,
+    NSInfoItem,
+    UEInfoItem,
+    UERInfoItem,
+    NotationInfoItem,
+    DTDInfoItem
+)]
+#[derive(Default)]
 pub struct InfoSetData {
-    repo: Repo,
-    pub doc_info_item: DocInfoItemPtr,
-}
-
-impl AsRepoRef for InfoSetData {
-    fn as_repo_ref(&self) -> &Repo {
-        &self.repo
-    }
-}
-
-impl AsRepoMut for InfoSetData {
-    fn as_repo_mut(&mut self) -> &mut Repo {
-        &mut self.repo
-    }
+    pub doc_info_item: Option<DocInfoItem>,
 }
 
 pub struct InfoSet<'input> {
     input: Cow<'input, str>,
-    data: InfoSetData
+    data: InfoSetData,
 }
 
 impl<'input> ops::Deref for InfoSet<'input> {
@@ -39,69 +40,63 @@ impl<'input> ops::Deref for InfoSet<'input> {
     }
 }
 
+impl<'input> ops::DerefMut for InfoSet<'input> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.data
+    }
+}
+
 #[derive(Default)]
 pub struct InfoSetStatistics {
     pub has_nonstandard_entity_reference: bool,
 }
 
 #[derive(Copy, Clone)]
-pub enum DocChildInfoItemPtr {
-    Element(ElementInfoItemPtr),
-    PI(PIInfoItemPtr),
-    Comment(CommentInfoItemPtr),
-    DTD(DTDInfoItemPtr),
+pub enum DocChildInfoItem {
+    Element(ElementInfoItem),
+    PI(PIInfoItem),
+    Comment(CommentInfoItem),
+    DTD(DTDInfoItem),
 }
 
 #[derive(Copy, Clone)]
-pub enum ElementChildInfoItemPtr {
-    Element(ElementInfoItemPtr),
-    PI(PIInfoItemPtr),
-    UER(UERInfoItemPtr),
-    CharGroup(CharGroupInfoItemPtr),
-    Comment(CommentInfoItemPtr),
+pub enum ElementChildInfoItem {
+    Element(ElementInfoItem),
+    PI(PIInfoItem),
+    UER(UERInfoItem),
+    CharGroup(CharGroupInfoItem),
+    Comment(CommentInfoItem),
 }
 
-impl_enum_from_variant!(ElementChildInfoItemPtr, Element, ElementInfoItemPtr);
-impl_enum_from_variant!(ElementChildInfoItemPtr, PI, PIInfoItemPtr);
-impl_enum_from_variant!(ElementChildInfoItemPtr, Comment, CommentInfoItemPtr);
+impl_enum_from_variant!(ElementChildInfoItem, Element, ElementInfoItem);
+impl_enum_from_variant!(ElementChildInfoItem, PI, PIInfoItem);
+impl_enum_from_variant!(ElementChildInfoItem, Comment, CommentInfoItem);
 
 #[derive(Copy, Clone)]
-pub enum ElementParentInfoItemPtr {
-    Doc(DocInfoItemPtr),
-    Element(ElementInfoItemPtr),
-}
-
-#[derive(Copy, Clone)]
-pub enum AttrReferenceInfoItemPtr {
-    Element(ElementInfoItemPtr),
-    UE(UEInfoItemPtr),
-    Notation(NotationInfoItemPtr),
+pub enum ElementParentInfoItem {
+    Doc(DocInfoItem),
+    Element(ElementInfoItem),
 }
 
 #[derive(Copy, Clone)]
-pub enum PIParentInfoItemPtr {
-    Doc(DocInfoItemPtr),
-    Element(ElementInfoItemPtr),
-    DTD(DTDInfoItemPtr),
+pub enum AttrReferenceInfoItem {
+    Element(ElementInfoItem),
+    UE(UEInfoItem),
+    Notation(NotationInfoItem),
 }
 
 #[derive(Copy, Clone)]
-pub enum CommentParentInfoItemPtr {
-    Doc(DocInfoItemPtr),
-    Element(ElementInfoItemPtr),
+pub enum PIParentInfoItem {
+    Doc(DocInfoItem),
+    Element(ElementInfoItem),
+    DTD(DTDInfoItem),
 }
 
-pub type DocInfoItemPtr = EntityPtr<DocInfoItem, InfoSetData>;
-pub type ElementInfoItemPtr = EntityPtr<ElementInfoItem, InfoSetData>;
-pub type AttributeInfoItemPtr = EntityPtr<AttributeInfoItem, InfoSetData>;
-pub type PIInfoItemPtr = EntityPtr<PIInfoItem, InfoSetData>;
-pub type UERInfoItemPtr = EntityPtr<UERInfoItem, InfoSetData>;
-pub type CharGroupInfoItemPtr = EntityPtr<CharGroupInfoItem, InfoSetData>;
-pub type CommentInfoItemPtr = EntityPtr<CommentInfoItem, InfoSetData>;
-pub type DTDInfoItemPtr = EntityPtr<DTDInfoItem, InfoSetData>;
-pub type UEInfoItemPtr = EntityPtr<UEInfoItem, InfoSetData>;
-pub type NotationInfoItemPtr = EntityPtr<NotationInfoItem, InfoSetData>;
-pub type NSInfoItemPtr = EntityPtr<NSInfoItem, InfoSetData>;
+#[derive(Copy, Clone)]
+pub enum CommentParentInfoItem {
+    Doc(DocInfoItem),
+    Element(ElementInfoItem),
+}
 
 #[derive(Clone)]
 pub struct Span(ops::Range<usize>);
@@ -116,21 +111,26 @@ impl Span {
 #[error("Invalid string span in XML info set")]
 pub struct SpanError;
 
+#[derive(Clone)]
 pub struct UriSpan(Span);
 
+#[derive(Clone)]
 pub enum Never {}
 
+#[derive(Clone)]
 pub enum Version {
     Version1_0,
     Version1_1,
     Other(String),
 }
 
+#[derive(Clone)]
 pub enum EncodingScheme {
     Utf8,
     Other(String),
 }
 
+#[derive(Clone)]
 pub enum CowSpan {
     Borrowed(Span),
     Owned(String),
@@ -145,43 +145,52 @@ impl CowSpan {
     }
 }
 
+#[derive(Clone)]
 pub enum UnknownOr<T> {
     Unknown,
     Known(T),
 }
 
-pub struct DocInfoItem {
-    pub children: Vec<DocChildInfoItemPtr>,
-    pub document_element: ElementInfoItemPtr,
-    pub notations: Option<Vec<NotationInfoItemPtr>>,
-    pub unparsed_entities: Vec<UEInfoItemPtr>,
-    pub base_uri: Option<UriSpan>,
-    pub character_encoding_scheme: Option<EncodingScheme>,
-    pub standalone: Option<bool>,
-    pub version: Version,
-    pub all_declarations_processed: bool,
+#[repo::entity(repo = InfoSetData)]
+pub enum DocInfoItem {
+    Parsed {
+        pub version: Version,
+        pub character_encoding_scheme: Option<EncodingScheme>,
+        pub standalone: Option<bool>,
+        pub document_element: ElementInfoItem,
+        pub children: Vec<DocChildInfoItem>,
+        pub notations: Option<Vec<NotationInfoItem>>,
+        pub unparsed_entities: Vec<UEInfoItem>,
+        pub base_uri: Option<UriSpan>,
+        pub all_declarations_processed: bool,
+    },
+    NotYetParsed,
 }
 
+#[repo::entity(repo = InfoSetData)]
 pub struct ElementInfoItem {
     pub namespace_name: Option<Span>,
     pub local_name: Span,
     pub prefix: Option<Span>,
-    pub children: Vec<ElementChildInfoItemPtr>,
-    pub attributes: Vec<AttributeInfoItemPtr>,
-    pub namespace_attributes: Vec<AttributeInfoItemPtr>,
-    pub in_scope_namespaces: Vec<NSInfoItemPtr>,
+    #[by_ref]
+    pub children: Vec<ElementChildInfoItem>,
+    pub attributes: Vec<AttributeInfoItem>,
+    pub namespace_attributes: Vec<AttributeInfoItem>,
+    pub in_scope_namespaces: Vec<NSInfoItem>,
     pub base_uri: Option<UriSpan>,
-    pub parent: ElementParentInfoItemPtr,
+    pub parent: ElementParentInfoItem,
 }
 
+#[derive(Clone, Copy)]
 pub enum AttrSpecified {
     Specified,
     DefaultedFromDTD,
 }
 
+#[derive(Clone)]
 pub enum AttrTypeAndReferences {
     ID(Option<Never>),
-    IDREF(Option<Vec<AttrReferenceInfoItemPtr>>),
+    IDREF(Option<Vec<AttrReferenceInfoItem>>),
     IDREFS,
     ENTITY,
     ENTITIES,
@@ -192,6 +201,7 @@ pub enum AttrTypeAndReferences {
     ENUMERATION(Option<Never>),
 }
 
+#[repo::entity(repo = InfoSetData)]
 pub struct AttributeInfoItem {
     pub namespace_name: Option<Span>,
     pub local_name: Span,
@@ -199,52 +209,59 @@ pub struct AttributeInfoItem {
     pub normalized_value: CowSpan,
     pub specified: AttrSpecified,
     pub attribute_type_and_references: Option<UnknownOr<AttrTypeAndReferences>>,
-    pub owner_element: ElementInfoItemPtr,
+    pub owner_element: ElementInfoItem,
 }
 
+#[repo::entity(repo = InfoSetData)]
 pub struct PIInfoItem {
     pub target: Span,
     pub content: Option<Span>,
-    pub base_uri: UriSpan,
-    pub notation: Option<UnknownOr<NotationInfoItemPtr>>,
-    pub parent: PIParentInfoItemPtr,
+    pub base_uri: Option<UriSpan>,
+    pub notation: Option<UnknownOr<NotationInfoItem>>,
+    pub parent: PIParentInfoItem,
 }
 
+#[repo::entity(repo = InfoSetData)]
 pub struct UERInfoItem {
     pub name: Span,
     pub system_identifier: UnknownOr<Option<Span>>,
     pub public_identifier: UnknownOr<Option<Span>>,
     pub declaration_base_uri: UnknownOr<Option<UriSpan>>,
-    pub parent: ElementInfoItemPtr,
+    pub parent: ElementInfoItem,
 }
 
+#[repo::entity(repo = InfoSetData)]
 pub struct CharGroupInfoItem {
     pub characters: CowSpan,
     pub element_content_whitespace: UnknownOr<Option<bool>>,
-    pub parent: ElementInfoItemPtr,
+    pub parent: ElementInfoItem,
 }
 
+#[repo::entity(repo = InfoSetData)]
 pub struct CommentInfoItem {
     pub content: Span,
-    pub parent: CommentParentInfoItemPtr,
+    pub parent: CommentParentInfoItem,
 }
 
+#[repo::entity(repo = InfoSetData)]
 pub struct DTDInfoItem {
     pub system_identifier: Option<Span>,
     pub public_identifier: Option<Span>,
-    pub children: Vec<PIInfoItemPtr>,
-    pub parent: DocInfoItemPtr,
+    pub children: Vec<PIInfoItem>,
+    pub parent: DocInfoItem,
 }
 
+#[repo::entity(repo = InfoSetData)]
 pub struct UEInfoItem {
     pub name: Span,
     pub system_identifier: Span,
     pub public_identifier: Option<Span>,
     pub declaration_base_uri: UriSpan,
     pub notation_name: Span,
-    pub notation: UnknownOr<Option<NotationInfoItemPtr>>,
+    pub notation: UnknownOr<Option<NotationInfoItem>>,
 }
 
+#[repo::entity(repo = InfoSetData)]
 pub struct NotationInfoItem {
     pub name: Span,
     pub system_identifier: Option<Span>,
@@ -252,6 +269,7 @@ pub struct NotationInfoItem {
     pub declaration_base_uri: UriSpan,
 }
 
+#[repo::entity(repo = InfoSetData)]
 pub struct NSInfoItem {
     pub prefix: Option<Span>,
     pub namespace_name: Span,
