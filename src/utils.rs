@@ -1,3 +1,5 @@
+#![allow(unused_variables)]
+
 pub enum QNameCategory<'a> {
     None,
     UnprefixedName(&'a str),

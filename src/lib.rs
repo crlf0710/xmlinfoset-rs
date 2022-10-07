@@ -154,17 +154,119 @@ pub enum UnknownOr<T> {
 #[repo::entity(repo = InfoSetData)]
 pub enum DocInfoItem {
     Parsed {
+        #[hidden_accessor = version_of_parsed_doc_info_item]
         pub version: Version,
+        #[hidden_accessor = character_encoding_scheme_of_parsed_doc_info_item]
         pub character_encoding_scheme: Option<EncodingScheme>,
+        #[hidden_accessor = standalone_of_parsed_doc_info_item]
         pub standalone: Option<bool>,
+        #[hidden_accessor = document_element_of_parsed_doc_info_item]
         pub document_element: ElementInfoItem,
+        #[hidden_accessor = children_of_parsed_doc_info_item]
+        #[by_ref]
         pub children: Vec<DocChildInfoItem>,
+        #[hidden_accessor = notations_of_parsed_doc_info_item]
+        #[by_ref]
         pub notations: Option<Vec<NotationInfoItem>>,
+        #[hidden_accessor = unparsed_entities_of_parsed_doc_info_item]
+        #[by_ref]
         pub unparsed_entities: Vec<UEInfoItem>,
+        #[hidden_accessor = base_uri_of_parsed_doc_info_item]
         pub base_uri: Option<UriSpan>,
+        #[hidden_accessor = all_declarations_processed_of_parsed_doc_info_item]
         pub all_declarations_processed: bool,
     },
     NotYetParsed,
+}
+
+impl DocInfoItem {
+    pub fn version(self, __repo: &InfoSetData) -> Version {
+        version_of_parsed_doc_info_item(self, __repo).unwrap()
+    }
+
+    pub fn set_version(self, __value: Version, __repo: &mut InfoSetData) {
+        set_version_of_parsed_doc_info_item(self, __value, __repo).unwrap()
+    }
+
+    pub fn character_encoding_scheme(self, __repo: &InfoSetData) -> Option<EncodingScheme> {
+        character_encoding_scheme_of_parsed_doc_info_item(self, __repo).unwrap()
+    }
+
+    pub fn set_character_encoding_scheme(
+        self,
+        __value: Option<EncodingScheme>,
+        __repo: &mut InfoSetData,
+    ) {
+        set_character_encoding_scheme_of_parsed_doc_info_item(self, __value, __repo).unwrap()
+    }
+
+    pub fn standalone(self, __repo: &InfoSetData) -> Option<bool> {
+        standalone_of_parsed_doc_info_item(self, __repo).unwrap()
+    }
+
+    pub fn set_standalone(self, __value: Option<bool>, __repo: &mut InfoSetData) {
+        set_standalone_of_parsed_doc_info_item(self, __value, __repo).unwrap()
+    }
+
+    pub fn document_element(self, __repo: &InfoSetData) -> ElementInfoItem {
+        document_element_of_parsed_doc_info_item(self, __repo).unwrap()
+    }
+
+    pub fn set_document_element(self, __value: ElementInfoItem, __repo: &mut InfoSetData) {
+        set_document_element_of_parsed_doc_info_item(self, __value, __repo).unwrap()
+    }
+
+    pub fn children(self, __repo: &InfoSetData) -> &Vec<DocChildInfoItem> {
+        children_of_parsed_doc_info_item(self, __repo).unwrap()
+    }
+
+    pub fn children_mut(self, __repo: &mut InfoSetData) -> &mut Vec<DocChildInfoItem> {
+        children_of_parsed_doc_info_item_mut(self, __repo).unwrap()
+    }
+
+    pub fn set_children(self, __value: Vec<DocChildInfoItem>, __repo: &mut InfoSetData) {
+        set_children_of_parsed_doc_info_item(self, __value, __repo).unwrap()
+    }
+
+    pub fn notations(self, __repo: &InfoSetData) -> &Option<Vec<NotationInfoItem>> {
+        notations_of_parsed_doc_info_item(self, __repo).unwrap()
+    }
+
+    pub fn notations_mut(self, __repo: &mut InfoSetData) -> &mut Option<Vec<NotationInfoItem>> {
+        notations_of_parsed_doc_info_item_mut(self, __repo).unwrap()
+    }
+
+    pub fn set_notations(self, __value: Option<Vec<NotationInfoItem>>, __repo: &mut InfoSetData) {
+        set_notations_of_parsed_doc_info_item(self, __value, __repo).unwrap()
+    }
+
+    pub fn unparsed_entities(self, __repo: &InfoSetData) -> &Vec<UEInfoItem> {
+        unparsed_entities_of_parsed_doc_info_item(self, __repo).unwrap()
+    }
+
+    pub fn unparsed_entities_mut(self, __repo: &mut InfoSetData) -> &mut Vec<UEInfoItem> {
+        unparsed_entities_of_parsed_doc_info_item_mut(self, __repo).unwrap()
+    }
+
+    pub fn set_unparsed_entities(self, __value: Vec<UEInfoItem>, __repo: &mut InfoSetData) {
+        set_unparsed_entities_of_parsed_doc_info_item(self, __value, __repo).unwrap()
+    }
+
+    pub fn base_uri(self, __repo: &InfoSetData) -> Option<UriSpan> {
+        base_uri_of_parsed_doc_info_item(self, __repo).unwrap()
+    }
+
+    pub fn set_base_uri(self, __value: Option<UriSpan>, __repo: &mut InfoSetData) {
+        set_base_uri_of_parsed_doc_info_item(self, __value, __repo).unwrap()
+    }
+
+    pub fn all_declarations_processed(self, __repo: &InfoSetData) -> bool {
+        all_declarations_processed_of_parsed_doc_info_item(self, __repo).unwrap()
+    }
+
+    pub fn set_all_declarations_processed(self, __value: bool, __repo: &mut InfoSetData) {
+        set_all_declarations_processed_of_parsed_doc_info_item(self, __value, __repo).unwrap()
+    }
 }
 
 #[repo::entity(repo = InfoSetData)]
